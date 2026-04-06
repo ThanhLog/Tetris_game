@@ -1,10 +1,11 @@
 import { COLS, EMPTY_CELL, ROWS, TETROMINOES } from "./gameConfig";
+import type { Grid, Piece, Shape } from "./gameTypes";
 
-export function createEmptyGrid() {
+export function createEmptyGrid(): Grid {
   return Array.from({ length: ROWS }, () => Array(COLS).fill(EMPTY_CELL));
 }
 
-export function randomPiece() {
+export function randomPiece(): Piece {
   const piece = TETROMINOES[Math.floor(Math.random() * TETROMINOES.length)];
 
   return {
@@ -15,7 +16,7 @@ export function randomPiece() {
   };
 }
 
-export function isColliding(piece, currentGrid) {
+export function isColliding(piece: Piece, currentGrid: Grid): boolean {
   const { shape, x, y } = piece;
 
   for (let i = 0; i < shape.length; i++) {
@@ -39,11 +40,11 @@ export function isColliding(piece, currentGrid) {
   return false;
 }
 
-export function mergePiece(piece, currentGrid) {
+export function mergePiece(piece: Piece, currentGrid: Grid): Grid {
   const newGrid = currentGrid.map((row) => [...row]);
 
-  piece.shape.forEach((row, i) => {
-    row.forEach((cell, j) => {
+  piece.shape.forEach((row: number[], i: number) => {
+    row.forEach((cell: number, j: number) => {
       if (cell) {
         const x = piece.x + j;
         const y = piece.y + i;
@@ -58,9 +59,9 @@ export function mergePiece(piece, currentGrid) {
   return newGrid;
 }
 
-export function clearLines(currentGrid) {
-  const newGrid = currentGrid.filter((row) =>
-    row.some((cell) => cell === EMPTY_CELL),
+export function clearLines(currentGrid: Grid): { grid: Grid; clearedCount: number } {
+  const newGrid = currentGrid.filter((row: Array<string | null>) =>
+    row.some((cell: string | null) => cell === EMPTY_CELL),
   );
   const clearedCount = ROWS - newGrid.length;
 
@@ -74,8 +75,8 @@ export function clearLines(currentGrid) {
   };
 }
 
-export function calculateScore(clearedCount) {
-  const pointsByLines = {
+export function calculateScore(clearedCount: number): number {
+  const pointsByLines: Record<number, number> = {
     1: 100,
     2: 300,
     3: 500,
@@ -85,17 +86,17 @@ export function calculateScore(clearedCount) {
   return pointsByLines[clearedCount] || 0;
 }
 
-export function rotateShape(shape) {
+export function rotateShape(shape: Shape): Shape {
   return shape[0].map((_, colIndex) =>
     shape.map((row) => row[colIndex]).reverse(),
   );
 }
 
-export function buildDisplayGrid(grid, currentPiece) {
+export function buildDisplayGrid(grid: Grid, currentPiece: Piece): Grid {
   const nextDisplayGrid = grid.map((row) => [...row]);
 
-  currentPiece.shape.forEach((row, i) => {
-    row.forEach((cell, j) => {
+  currentPiece.shape.forEach((row: number[], i: number) => {
+    row.forEach((cell: number, j: number) => {
       if (cell) {
         const x = currentPiece.x + j;
         const y = currentPiece.y + i;

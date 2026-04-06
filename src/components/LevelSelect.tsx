@@ -1,10 +1,17 @@
+import type { Level } from "./gameTypes";
+
 const LEVEL_OPTIONS = [
   { value: "easy", label: "Easy", accent: "level-easy" },
   { value: "medium", label: "Medium", accent: "level-medium" },
   { value: "hard", label: "Hard", accent: "level-hard" },
-];
+] as const satisfies ReadonlyArray<{ value: Level; label: string; accent: string }>;
 
-export default function LevelSelect({ onSelect, selectedLevel }) {
+type LevelSelectProps = {
+  onSelect: (level: Level) => void;
+  selectedLevel: Level;
+};
+
+export default function LevelSelect({ onSelect, selectedLevel }: LevelSelectProps) {
   return (
     <section className="level-container">
       <p className="game-panel-label">Select Mode</p>

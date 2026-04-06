@@ -1,9 +1,16 @@
+type GameOverCardProps = {
+  highScore: number;
+  linesCleared: number;
+  onRestart: () => void;
+  score: number;
+};
+
 export default function GameOverCard({
   highScore,
   linesCleared,
   onRestart,
   score,
-}) {
+}: GameOverCardProps) {
   return (
     <div className="game-over-card">
       <p className="game-over-label">Session Ended</p>

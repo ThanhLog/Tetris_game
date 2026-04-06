@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import GameGrid from "./GameGrid";
-import GameOverCard from "./GameOverCard";
 import { HIGH_SCORE_KEY } from "./gameConfig";
+import GameGrid from "./GameGrid";
 import GameSidebar from "./GameSidebar";
+import GameOverCard from "./GameOverCard";
 import {
   buildDisplayGrid,
   calculateScore,
@@ -13,17 +13,30 @@ import {
   randomPiece,
   rotateShape,
 } from "./gameUtils";
+import type { ActionSignal, ActionType, GameOverInfo, Grid, Level, Piece } from "./gameTypes";
 
-export default function GameBoard({ actionSignal, level, onGameOver, onRestart, restartNonce }) {
-  const [grid, setGrid] = useState(createEmptyGrid);
-  const [currentPiece, setCurrentPiece] = useState(randomPiece());
+type GameBoardProps = {
+  actionSignal: ActionSignal;
+  level: Level;
+  onGameOver?: (info: GameOverInfo) => void;
+  onRestart: () => void;
+};
+
+export default function GameBoard({
+  actionSignal,
+  level,
+  onGameOver,
+  onRestart,
+}: GameBoardProps) {
+  const [grid, setGrid] = useState<Grid>(createEmptyGrid);
+  const [currentPiece, setCurrentPiece] = useState<Piece>(randomPiece());
   const [gameOver, setGameOver] = useState(false);
-  const [nextPiece, setNextPiece] = useState(randomPiece());
+  const [nextPiece, setNextPiece] = useState<Piece>(randomPiece());
   const [score, setScore] = useState(0);
   const [linesCleared, setLinesCleared] = useState(0);
   const [scorePulse, setScorePulse] = useState(false);
-  const [scorePopup, setScorePopup] = useState(null);
-  const [highScore, setHighScore] = useState(() => {
+  const [scorePopup, setScorePopup] = useState<string | null>(null);
+  const [storedHighScore] = useState(() => {
     if (typeof window === "undefined") return 0;
 
     const savedScore = window.localStorage.getItem(HIGH_SCORE_KEY);
@@ -35,20 +48,8 @@ export default function GameBoard({ actionSignal, level, onGameOver, onRestart, 
   const currentPieceRef = useRef(currentPiece);
   const nextPieceRef = useRef(nextPiece);
   const gameOverRef = useRef(gameOver);
-  const scoreTimeoutRef = useRef(null);
-
-  const handleGesture = useCallback((action) => {
-    if (action === "LEFT") movePiece(-1, 0);
-    if (action === "RIGHT") movePiece(1, 0);
-    if (action === "ROTATE") rotateCurrentPiece();
-    if (action === "DOWN") movePiece(0, 1);
-  }, []);
-
-  useEffect(() => {
-    if (!actionSignal?.action) return;
-
-    handleGesture(actionSignal.action);
-  }, [actionSignal, handleGesture]);
+  const scoreTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const highScore = Math.max(storedHighScore, score);
 
   useEffect(() => {
     if (level === "easy") speedRef.current = 800;
@@ -72,7 +73,7 @@ export default function GameBoard({ actionSignal, level, onGameOver, onRestart, 
     gameOverRef.current = gameOver;
   }, [gameOver]);
 
-  function spawnNextPiece(currentGrid) {
+  const spawnNextPiece = useCallback((currentGrid: Grid): boolean => {
     const newPiece = nextPieceRef.current;
     setNextPiece(randomPiece());
 
@@ -83,9 +84,9 @@ export default function GameBoard({ actionSignal, level, onGameOver, onRestart, 
 
     setCurrentPiece(newPiece);
     return true;
-  }
+  }, []);
 
-  function lockPiece(piece) {
+  const lockPiece = useCallback((piece: Piece): void => {
     const merged = mergePiece(piece, gridRef.current);
     const { grid: clearedGrid, clearedCount } = clearLines(merged);
 
@@ -111,9 +112,9 @@ export default function GameBoard({ actionSignal, level, onGameOver, onRestart, 
     }
 
     spawnNextPiece(clearedGrid);
-  }
+  }, [spawnNextPiece]);
 
-  function movePiece(dx, dy) {
+  const movePiece = useCallback((dx: number, dy: number): void => {
     if (gameOverRef.current) return;
 
     const piece = currentPieceRef.current;
@@ -127,9 +128,9 @@ export default function GameBoard({ actionSignal, level, onGameOver, onRestart, 
     }
 
     setCurrentPiece(next);
-  }
+  }, [lockPiece]);
 
-  function rotateCurrentPiece() {
+  const rotateCurrentPiece = useCallback((): void => {
     if (gameOverRef.current) return;
 
     const piece = currentPieceRef.current;
@@ -153,36 +154,20 @@ export default function GameBoard({ actionSignal, level, onGameOver, onRestart, 
     if (!isColliding(shiftedRight, gridRef.current)) {
       setCurrentPiece(shiftedRight);
     }
-  }
+  }, []);
 
-  function resetGame() {
-    const freshGrid = createEmptyGrid();
-    const freshCurrentPiece = randomPiece();
-    const freshNextPiece = randomPiece();
-
-    setGrid(freshGrid);
-    setCurrentPiece(freshCurrentPiece);
-    setNextPiece(freshNextPiece);
-    setGameOver(false);
-    setScore(0);
-    setLinesCleared(0);
-    setScorePulse(false);
-    setScorePopup(null);
-
-    gridRef.current = freshGrid;
-    currentPieceRef.current = freshCurrentPiece;
-    nextPieceRef.current = freshNextPiece;
-    gameOverRef.current = false;
-
-    if (scoreTimeoutRef.current) {
-      clearTimeout(scoreTimeoutRef.current);
-      scoreTimeoutRef.current = null;
-    }
-  }
+  const handleGesture = useCallback((action: ActionType) => {
+    if (action === "LEFT") movePiece(-1, 0);
+    if (action === "RIGHT") movePiece(1, 0);
+    if (action === "ROTATE") rotateCurrentPiece();
+    if (action === "DOWN") movePiece(0, 1);
+  }, [movePiece, rotateCurrentPiece]);
 
   useEffect(() => {
-    resetGame();
-  }, [restartNonce]);
+    if (!actionSignal?.action) return;
+
+    handleGesture(actionSignal.action);
+  }, [actionSignal, handleGesture]);
 
   useEffect(() => {
     if (gameOver) return;
@@ -192,10 +177,10 @@ export default function GameBoard({ actionSignal, level, onGameOver, onRestart, 
     }, speedRef.current);
 
     return () => clearInterval(interval);
-  }, [gameOver]);
+  }, [gameOver, movePiece]);
 
   useEffect(() => {
-    function handleKeyDown(event) {
+    function handleKeyDown(event: KeyboardEvent) {
       if (gameOverRef.current) return;
 
       if (
@@ -214,7 +199,7 @@ export default function GameBoard({ actionSignal, level, onGameOver, onRestart, 
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
+  }, [movePiece, rotateCurrentPiece]);
 
   useEffect(() => {
     return () => {
@@ -225,11 +210,10 @@ export default function GameBoard({ actionSignal, level, onGameOver, onRestart, 
   }, []);
 
   useEffect(() => {
-    if (score <= highScore) return;
+    if (score <= storedHighScore) return;
 
-    setHighScore(score);
     window.localStorage.setItem(HIGH_SCORE_KEY, String(score));
-  }, [highScore, score]);
+  }, [score, storedHighScore]);
 
   const displayGrid = useMemo(
     () => buildDisplayGrid(grid, currentPiece),

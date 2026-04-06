@@ -1,9 +1,11 @@
+import type { Shape } from "./gameTypes";
+
 export const ROWS = 20;
 export const COLS = 10;
-export const EMPTY_CELL = null;
+export const EMPTY_CELL: null = null;
 export const HIGH_SCORE_KEY = "tetris-high-score";
 
-export const TETROMINOES = [
+export const TETROMINOES: Array<{ shape: Shape; color: string }> = [
   {
     shape: [[1, 1, 1, 1]],
     color: "cyan",

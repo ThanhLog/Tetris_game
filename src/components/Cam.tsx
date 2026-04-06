@@ -7,22 +7,21 @@ import {
 } from "@mediapipe/tasks-vision";
 import { useEffect, useRef, useState } from "react";
 import Webcam from "react-webcam";
-
-type CamAction = "LEFT" | "RIGHT" | "ROTATE" | "DOWN";
+import type { ActionType, Level } from "./gameTypes";
 
 type CamProps = {
-  onAction?: (action: CamAction) => void;
+  onAction?: (action: ActionType) => void;
   screen?: "menu" | "playing" | "gameover";
-  selectedLevel?: string;
+  selectedLevel?: Level;
 };
 
 type GestureState = {
-  action: CamAction | null;
+  action: ActionType | null;
   gesture: string;
   handLabel: string;
 };
 
-const ACTION_COOLDOWN_MS: Record<CamAction, number> = {
+const ACTION_COOLDOWN_MS: Record<ActionType, number> = {
   LEFT: 280,
   RIGHT: 280,
   ROTATE: 900,
@@ -98,7 +97,7 @@ function drawHandOverlay(
   landmarks: NormalizedLandmark[] | null,
   gesture: string,
   status: string,
-  activeAction: CamAction | null,
+  activeAction: ActionType | null,
 ) {
   const context = canvas.getContext("2d");
 
@@ -186,7 +185,7 @@ export default function Cam({ onAction, screen = "playing", selectedLevel }: Cam
   const frameRequestRef = useRef<number | null>(null);
   const lastVideoTimeRef = useRef(-1);
   const activeActionTimeoutRef = useRef<number | null>(null);
-  const lastActionTimesRef = useRef<Record<CamAction, number>>({
+  const lastActionTimesRef = useRef<Record<ActionType, number>>({
     LEFT: 0,
     RIGHT: 0,
     ROTATE: 0,
@@ -194,13 +193,13 @@ export default function Cam({ onAction, screen = "playing", selectedLevel }: Cam
   });
   const statusRef = useRef("Dang tai hand tracker...");
   const gestureRef = useRef("Idle");
-  const activeActionRef = useRef<CamAction | null>(null);
+  const activeActionRef = useRef<ActionType | null>(null);
   const onActionRef = useRef(onAction);
 
   const [status, setStatus] = useState("Dang tai hand tracker...");
   const [gesture, setGesture] = useState("Idle");
   const [handLabel, setHandLabel] = useState("Unknown");
-  const [activeAction, setActiveAction] = useState<CamAction | null>(null);
+  const [activeAction, setActiveAction] = useState<ActionType | null>(null);
 
   useEffect(() => {
     statusRef.current = status;
