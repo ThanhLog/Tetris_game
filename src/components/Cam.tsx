@@ -27,6 +27,7 @@ const ACTION_COOLDOWN_MS: Record<ActionType, number> = {
   ROTATE: 900,
   DOWN: 160,
 };
+const SIDE_CONTROL_ZONE_RATIO = 0.28;
 
 function countOpenFingers(landmarks: NormalizedLandmark[]) {
   const isExtended = (tipIndex: number, pipIndex: number) =>
@@ -73,11 +74,11 @@ function detectGesture(
   }
 
   if (fingers.index && !fingers.middle && !fingers.ring && !fingers.pinky) {
-    if (centerX < 0.38) {
+    if (centerX < SIDE_CONTROL_ZONE_RATIO) {
       return { action: "RIGHT", gesture: "Point Left Zone", handLabel: normalizedHandLabel };
     }
 
-    if (centerX > 0.62) {
+    if (centerX > 1 - SIDE_CONTROL_ZONE_RATIO) {
       return { action: "LEFT", gesture: "Point Right Zone", handLabel: normalizedHandLabel };
     }
 
@@ -110,8 +111,8 @@ function drawHandOverlay(
 
   context.clearRect(0, 0, width, height);
 
-  const leftGuide = width * 0.38;
-  const rightGuide = width * 0.62;
+  const leftGuide = width * SIDE_CONTROL_ZONE_RATIO;
+  const rightGuide = width * (1 - SIDE_CONTROL_ZONE_RATIO);
 
   context.fillStyle = "rgba(14, 165, 233, 0.05)";
   context.fillRect(0, 0, leftGuide, height);
