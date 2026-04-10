@@ -13,20 +13,44 @@ import {
   randomPiece,
   rotateShape,
 } from "./gameUtils";
-import type { ActionSignal, ActionType, GameOverInfo, Grid, Level, Piece } from "./gameTypes";
+import type {
+  ActionSignal,
+  ActionType,
+  GameOverInfo,
+  Grid,
+  KeyboardBindings,
+  Level,
+  Piece,
+  SharedBoardState,
+} from "./gameTypes";
 
 type GameBoardProps = {
   actionSignal: ActionSignal;
+  controlsHint?: string;
+  keyboardBindings?: KeyboardBindings;
   level: Level;
   onGameOver?: (info: GameOverInfo) => void;
   onRestart: () => void;
+  onStateChange?: (state: SharedBoardState) => void;
+  playerLabel?: string;
+};
+
+const DEFAULT_KEYBOARD_BINDINGS: KeyboardBindings = {
+  down: ["ArrowDown"],
+  left: ["ArrowLeft"],
+  right: ["ArrowRight"],
+  rotate: ["ArrowUp", " "],
 };
 
 export default function GameBoard({
   actionSignal,
+  controlsHint = "Arrow keys / Space",
+  keyboardBindings = DEFAULT_KEYBOARD_BINDINGS,
   level,
   onGameOver,
   onRestart,
+  onStateChange,
+  playerLabel,
 }: GameBoardProps) {
   const [grid, setGrid] = useState<Grid>(createEmptyGrid);
   const [currentPiece, setCurrentPiece] = useState<Piece>(randomPiece());
@@ -183,23 +207,26 @@ export default function GameBoard({
     function handleKeyDown(event: KeyboardEvent) {
       if (gameOverRef.current) return;
 
-      if (
-        ["ArrowLeft", "ArrowRight", "ArrowDown", "ArrowUp", " "].includes(
-          event.key,
-        )
-      ) {
+      const controlledKeys = [
+        ...keyboardBindings.left,
+        ...keyboardBindings.right,
+        ...keyboardBindings.down,
+        ...keyboardBindings.rotate,
+      ];
+
+      if (controlledKeys.includes(event.key)) {
         event.preventDefault();
       }
 
-      if (event.key === "ArrowLeft") movePiece(-1, 0);
-      if (event.key === "ArrowRight") movePiece(1, 0);
-      if (event.key === "ArrowDown") movePiece(0, 1);
-      if (event.key === "ArrowUp" || event.key === " ") rotateCurrentPiece();
+      if (keyboardBindings.left.includes(event.key)) movePiece(-1, 0);
+      if (keyboardBindings.right.includes(event.key)) movePiece(1, 0);
+      if (keyboardBindings.down.includes(event.key)) movePiece(0, 1);
+      if (keyboardBindings.rotate.includes(event.key)) rotateCurrentPiece();
     }
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [movePiece, rotateCurrentPiece]);
+  }, [keyboardBindings, movePiece, rotateCurrentPiece]);
 
   useEffect(() => {
     return () => {
@@ -230,17 +257,32 @@ export default function GameBoard({
     });
   }, [gameOver, highScore, linesCleared, onGameOver, score]);
 
+  useEffect(() => {
+    onStateChange?.({
+      displayGrid,
+      gameOver,
+      highScore,
+      level,
+      linesCleared,
+      nextPiece,
+      score,
+      updatedAt: Date.now(),
+    });
+  }, [displayGrid, gameOver, highScore, level, linesCleared, nextPiece, onStateChange, score]);
+
   return (
     <div className="game-container">
       {!gameOver ? (
         <div className="game-layout">
           <GameGrid displayGrid={displayGrid} />
           <GameSidebar
+            controlsHint={controlsHint}
             highScore={highScore}
             level={level}
             linesCleared={linesCleared}
             movePiece={movePiece}
             nextPiece={nextPiece}
+            panelTitle={playerLabel}
             rotateCurrentPiece={rotateCurrentPiece}
             score={score}
             scorePopup={scorePopup}
@@ -252,6 +294,7 @@ export default function GameBoard({
           highScore={highScore}
           linesCleared={linesCleared}
           onRestart={onRestart}
+          playerLabel={playerLabel}
           score={score}
         />
       )}

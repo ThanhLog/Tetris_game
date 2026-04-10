@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "server": "node server/roomServer.mjs"
   },
   "dependencies": {
     "@mediapipe/hands": "^0.4.1675469240",
@@ -15,7 +16,8 @@
     "onnxruntime-web": "^1.24.3",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
-    "react-webcam": "^7.2.0"
+    "react-webcam": "^7.2.0",
+    "ws": "^8.20.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",

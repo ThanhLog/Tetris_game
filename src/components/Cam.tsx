@@ -7,11 +7,12 @@ import {
 } from "@mediapipe/tasks-vision";
 import { useEffect, useRef, useState } from "react";
 import Webcam from "react-webcam";
-import type { ActionType, Level } from "./gameTypes";
+import type { ActionType, GameMode, Level } from "./gameTypes";
 
 type CamProps = {
   onAction?: (action: ActionType) => void;
   screen?: "menu" | "playing" | "gameover";
+  gameMode?: GameMode;
   selectedLevel?: Level;
 };
 
@@ -167,19 +168,36 @@ function drawHandOverlay(
   context.fillText(`Gesture: ${gesture}`, 22, height - 21);
 }
 
-function getScreenHint(screen: CamProps["screen"], selectedLevel?: string) {
+function getScreenHint(
+  screen: CamProps["screen"],
+  gameMode: GameMode = "solo",
+  selectedLevel?: string,
+) {
   if (screen === "menu") {
-    return `Mode: ${selectedLevel ?? "easy"} | Tro trai phai de chon | Nam tay de vao game`;
+    return `Mode: ${selectedLevel ?? "easy"} | ${gameMode === "solo" ? "Solo" : gameMode === "local-multiplayer" ? "Local multiplayer" : "Online room"} | Tro trai phai de chon | Nam tay de vao game`;
   }
 
   if (screen === "gameover") {
     return "Nam tay hoac hai ngon de restart | Tro trai phai de quay ve menu";
   }
 
+  if (gameMode === "local-multiplayer") {
+    return "Camera dieu khien Player 1 | Player 2 dung WASD | Nam tay de xoay | Hai ngon de day xuong";
+  }
+
+  if (gameMode === "online-room") {
+    return "Host doi level va start bang cu chi | Board duoc stream sang may con lai theo room";
+  }
+
   return "Tro de di chuyen | Nam tay de xoay | Hai ngon de day xuong";
 }
 
-export default function Cam({ onAction, screen = "playing", selectedLevel }: CamProps) {
+export default function Cam({
+  onAction,
+  screen = "playing",
+  gameMode = "solo",
+  selectedLevel,
+}: CamProps) {
   const webcamRef = useRef<Webcam>(null);
   const overlayRef = useRef<HTMLCanvasElement>(null);
   const handLandmarkerRef = useRef<HandLandmarker | null>(null);
@@ -372,7 +390,7 @@ export default function Cam({ onAction, screen = "playing", selectedLevel }: Cam
           <span className="camera-chip">Gesture: {gesture}</span>
           <span className="camera-chip">Hand: {handLabel}</span>
         </div>
-        <p className="camera-hud-hint">{getScreenHint(screen, selectedLevel)}</p>
+        <p className="camera-hud-hint">{getScreenHint(screen, gameMode, selectedLevel)}</p>
       </div>
     </div>
   );

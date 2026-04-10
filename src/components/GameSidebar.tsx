@@ -2,11 +2,13 @@ import NextPiecePreview from "./NextPiecePreview";
 import type { Level, Piece } from "./gameTypes";
 
 type GameSidebarProps = {
+  controlsHint: string;
   highScore: number;
   level: Level;
   linesCleared: number;
   movePiece: (dx: number, dy: number) => void;
   nextPiece: Piece;
+  panelTitle?: string;
   rotateCurrentPiece: () => void;
   score: number;
   scorePopup: string | null;
@@ -14,11 +16,13 @@ type GameSidebarProps = {
 };
 
 export default function GameSidebar({
+  controlsHint,
   highScore,
   level,
   linesCleared,
   movePiece,
   nextPiece,
+  panelTitle,
   rotateCurrentPiece,
   score,
   scorePopup,
@@ -26,6 +30,13 @@ export default function GameSidebar({
 }: GameSidebarProps) {
   return (
     <aside className="game-sidebar">
+      {panelTitle ? (
+        <div className="game-panel">
+          <p className="game-panel-label">Player</p>
+          <h3 className="game-panel-value">{panelTitle}</h3>
+        </div>
+      ) : null}
+
       <div className="game-panel">
         <p className="game-panel-label">Level</p>
         <h3 className="game-panel-value">{level}</h3>
@@ -43,6 +54,7 @@ export default function GameSidebar({
 
       <div className="game-panel">
         <p className="game-panel-label">Controls</p>
+        <p className="game-panel-meta game-panel-meta-tight">{controlsHint}</p>
         <div className="controls-grid">
           <button
             type="button"
