@@ -51,9 +51,11 @@ export type RoomState = {
   roomCode: string;
   selectedLevel: Level;
   started: boolean;
+  winnerId: RoomPlayerId | null;
 };
 
 export type GameOverInfo = {
+  endedAt: number;
   score: number;
   linesCleared: number;
   highScore: number;

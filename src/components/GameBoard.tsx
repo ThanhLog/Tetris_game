@@ -27,6 +27,7 @@ import type {
 type GameBoardProps = {
   actionSignal: ActionSignal;
   controlsHint?: string;
+  disabled?: boolean;
   keyboardBindings?: KeyboardBindings;
   level: Level;
   onGameOver?: (info: GameOverInfo) => void;
@@ -45,6 +46,7 @@ const DEFAULT_KEYBOARD_BINDINGS: KeyboardBindings = {
 export default function GameBoard({
   actionSignal,
   controlsHint = "Arrow keys / Space",
+  disabled = false,
   keyboardBindings = DEFAULT_KEYBOARD_BINDINGS,
   level,
   onGameOver,
@@ -139,7 +141,7 @@ export default function GameBoard({
   }, [spawnNextPiece]);
 
   const movePiece = useCallback((dx: number, dy: number): void => {
-    if (gameOverRef.current) return;
+    if (disabled || gameOverRef.current) return;
 
     const piece = currentPieceRef.current;
     const next = { ...piece, x: piece.x + dx, y: piece.y + dy };
@@ -152,10 +154,10 @@ export default function GameBoard({
     }
 
     setCurrentPiece(next);
-  }, [lockPiece]);
+  }, [disabled, lockPiece]);
 
   const rotateCurrentPiece = useCallback((): void => {
-    if (gameOverRef.current) return;
+    if (disabled || gameOverRef.current) return;
 
     const piece = currentPieceRef.current;
     const rotated = {
@@ -178,7 +180,7 @@ export default function GameBoard({
     if (!isColliding(shiftedRight, gridRef.current)) {
       setCurrentPiece(shiftedRight);
     }
-  }, []);
+  }, [disabled]);
 
   const handleGesture = useCallback((action: ActionType) => {
     if (action === "LEFT") movePiece(-1, 0);
@@ -188,24 +190,24 @@ export default function GameBoard({
   }, [movePiece, rotateCurrentPiece]);
 
   useEffect(() => {
-    if (!actionSignal?.action) return;
+    if (disabled || !actionSignal?.action) return;
 
     handleGesture(actionSignal.action);
-  }, [actionSignal, handleGesture]);
+  }, [actionSignal, disabled, handleGesture]);
 
   useEffect(() => {
-    if (gameOver) return;
+    if (disabled || gameOver) return;
 
     const interval = setInterval(() => {
       movePiece(0, 1);
     }, speedRef.current);
 
     return () => clearInterval(interval);
-  }, [gameOver, movePiece]);
+  }, [disabled, gameOver, movePiece]);
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
-      if (gameOverRef.current) return;
+      if (disabled || gameOverRef.current) return;
 
       const controlledKeys = [
         ...keyboardBindings.left,
@@ -226,7 +228,7 @@ export default function GameBoard({
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [keyboardBindings, movePiece, rotateCurrentPiece]);
+  }, [disabled, keyboardBindings, movePiece, rotateCurrentPiece]);
 
   useEffect(() => {
     return () => {
@@ -251,6 +253,7 @@ export default function GameBoard({
     if (!gameOver) return;
 
     onGameOver?.({
+      endedAt: Date.now(),
       highScore: Math.max(highScore, score),
       linesCleared,
       score,

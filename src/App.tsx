@@ -5,6 +5,7 @@ import GameBoard from "./components/GameBoard";
 import LevelSelect from "./components/LevelSelect";
 import OnlineRoomPanel from "./components/OnlineRoomPanel";
 import RemoteBoard from "./components/RemoteBoard";
+import { useGameAudio } from "./hooks/useGameAudio";
 import type {
   ActionSignal,
   ActionType,
@@ -36,6 +37,10 @@ const ROOM_SERVER_URL =
 function App() {
   const socketRef = useRef<WebSocket | null>(null);
   const onlineRoomRef = useRef<RoomState | null>(null);
+  const boardStateFlushTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingBoardStateRef = useRef<SharedBoardState | null>(null);
+  const lastBoardStateSentAtRef = useRef(0);
+  const lastOnlineWinnerRef = useRef<RoomState["winnerId"]>(null);
   const [menuIndex, setMenuIndex] = useState(0);
   const [gameMode, setGameMode] = useState<GameMode>("solo");
   const [level, setLevel] = useState<Level | null>(null);
@@ -54,6 +59,10 @@ function App() {
   const [roomCodeInput, setRoomCodeInput] = useState("");
   const [roomError, setRoomError] = useState<string | null>(null);
   const [onlineRoom, setOnlineRoom] = useState<RoomState | null>(null);
+  const [playerOneGameOver, setPlayerOneGameOver] = useState<GameOverInfo | null>(null);
+  const [playerTwoGameOver, setPlayerTwoGameOver] = useState<GameOverInfo | null>(null);
+  const [localVersusResult, setLocalVersusResult] = useState<"winner" | "lose" | null>(null);
+  const playGameAudio = useGameAudio();
 
   const selectedLevel = useMemo(() => LEVELS[menuIndex], [menuIndex]);
   const isOnlineMode = gameMode === "online-room";
@@ -67,11 +76,21 @@ function App() {
     [onlineRoom],
   );
   const isOnlineHost = localOnlinePlayer?.isHost ?? false;
+  const isOnlineMatchResolved = Boolean(onlineRoom?.winnerId);
 
   const sendRoomMessage = useCallback((payload: object) => {
     if (socketRef.current?.readyState !== WebSocket.OPEN) return;
 
     socketRef.current.send(JSON.stringify(payload));
+  }, []);
+
+  const clearPendingBoardState = useCallback(() => {
+    pendingBoardStateRef.current = null;
+
+    if (boardStateFlushTimeoutRef.current) {
+      clearTimeout(boardStateFlushTimeoutRef.current);
+      boardStateFlushTimeoutRef.current = null;
+    }
   }, []);
 
   const applyRoomState = useCallback((nextRoom: RoomState) => {
@@ -82,14 +101,17 @@ function App() {
   }, []);
 
   const closeSocket = useCallback(() => {
+    clearPendingBoardState();
     socketRef.current?.close();
     socketRef.current = null;
     onlineRoomRef.current = null;
+    lastOnlineWinnerRef.current = null;
+    lastBoardStateSentAtRef.current = 0;
     setOnlineRoom(null);
     setConnectionStatus("disconnected");
     setRoomCodeInput("");
     setLevel(null);
-  }, []);
+  }, [clearPendingBoardState]);
 
   const openSocket = useCallback(() => {
     if (socketRef.current && socketRef.current.readyState <= WebSocket.OPEN) {
@@ -134,13 +156,18 @@ function App() {
   const startLevel = useCallback((nextLevel: Level) => {
     setLevel(nextLevel);
     setGameOverInfo(null);
+    setPlayerOneGameOver(null);
+    setPlayerTwoGameOver(null);
+    setLocalVersusResult(null);
     setSoloRestartNonce((prev) => prev + 1);
     setOnlineRestartNonce((prev) => prev + 1);
     setMultiplayerRestartNonce((prev) => ({
       playerOne: prev.playerOne + 1,
       playerTwo: prev.playerTwo + 1,
     }));
-  }, []);
+    clearPendingBoardState();
+    lastBoardStateSentAtRef.current = 0;
+  }, [clearPendingBoardState]);
 
   const restartGame = useCallback(() => {
     setGameOverInfo(null);
@@ -148,6 +175,13 @@ function App() {
   }, []);
 
   const restartMultiplayerBoard = useCallback((player: "playerOne" | "playerTwo") => {
+    setLocalVersusResult(null);
+    if (player === "playerOne") {
+      setPlayerOneGameOver(null);
+    } else {
+      setPlayerTwoGameOver(null);
+    }
+
     setMultiplayerRestartNonce((prev) => ({
       ...prev,
       [player]: prev[player] + 1,
@@ -215,9 +249,54 @@ function App() {
     sendRoomMessage({ type: "stop_game" });
   }, [sendRoomMessage]);
 
-  const handleOnlineBoardState = useCallback((state: SharedBoardState) => {
+  const flushBoardStateNow = useCallback((state: SharedBoardState) => {
+    clearPendingBoardState();
+    lastBoardStateSentAtRef.current = Date.now();
     sendRoomMessage({ type: "board_state", boardState: state });
-  }, [sendRoomMessage]);
+  }, [clearPendingBoardState, sendRoomMessage]);
+
+  const handleOnlineBoardState = useCallback((state: SharedBoardState) => {
+    const activeRoom = onlineRoomRef.current;
+    if (!activeRoom?.started || activeRoom.winnerId) return;
+
+    if (state.gameOver) {
+      flushBoardStateNow(state);
+      return;
+    }
+
+    pendingBoardStateRef.current = state;
+
+    const elapsed = Date.now() - lastBoardStateSentAtRef.current;
+    const throttleMs = 100;
+
+    if (elapsed >= throttleMs) {
+      flushBoardStateNow(state);
+      return;
+    }
+
+    if (boardStateFlushTimeoutRef.current) return;
+
+    boardStateFlushTimeoutRef.current = setTimeout(() => {
+      boardStateFlushTimeoutRef.current = null;
+
+      if (pendingBoardStateRef.current) {
+        flushBoardStateNow(pendingBoardStateRef.current);
+      }
+    }, throttleMs - elapsed);
+  }, [flushBoardStateNow]);
+
+  const handleSoloGameOver = useCallback((info: GameOverInfo) => {
+    playGameAudio("gameOver");
+    setGameOverInfo(info);
+  }, [playGameAudio]);
+
+  const handlePlayerOneGameOver = useCallback((info: GameOverInfo) => {
+    setPlayerOneGameOver(info);
+  }, []);
+
+  const handlePlayerTwoGameOver = useCallback((info: GameOverInfo) => {
+    setPlayerTwoGameOver(info);
+  }, []);
 
   const handleGestureAction = useCallback((action: ActionType) => {
     if (screen === "menu") {
@@ -274,11 +353,15 @@ function App() {
       return;
     }
 
+    if (isOnlineMode && isOnlineMatchResolved) {
+      return;
+    }
+
     setGameAction((prev) => ({
       id: prev.id + 1,
       action,
     }));
-  }, [isOnlineMode, menuIndex, restartGame, screen, selectedLevel, sendRoomMessage, startLevel]);
+  }, [isOnlineMatchResolved, isOnlineMode, menuIndex, restartGame, screen, selectedLevel, sendRoomMessage, startLevel]);
 
   useEffect(() => {
     if (!isOnlineMode || !onlineRoom) return;
@@ -301,6 +384,42 @@ function App() {
       closeSocket();
     };
   }, [closeSocket, isOnlineMode]);
+
+  useEffect(() => {
+    if (localVersusResult) return;
+
+    if (playerOneGameOver && (!playerTwoGameOver || playerOneGameOver.endedAt <= playerTwoGameOver.endedAt)) {
+      setLocalVersusResult("lose");
+      playGameAudio("lose");
+      return;
+    }
+
+    if (playerTwoGameOver) {
+      setLocalVersusResult("winner");
+      playGameAudio("winner");
+    }
+  }, [localVersusResult, playGameAudio, playerOneGameOver, playerTwoGameOver]);
+
+  useEffect(() => {
+    const winnerId = onlineRoom?.winnerId ?? null;
+
+    if (!winnerId) {
+      lastOnlineWinnerRef.current = null;
+      return;
+    }
+
+    if (winnerId === lastOnlineWinnerRef.current) return;
+
+    lastOnlineWinnerRef.current = winnerId;
+    playGameAudio(winnerId === onlineRoom?.localPlayerId ? "winner" : "lose");
+    clearPendingBoardState();
+  }, [clearPendingBoardState, onlineRoom?.localPlayerId, onlineRoom?.winnerId, playGameAudio]);
+
+  useEffect(() => {
+    return () => {
+      clearPendingBoardState();
+    };
+  }, [clearPendingBoardState]);
 
   return (
     <div className="app">
@@ -354,7 +473,7 @@ function App() {
                 actionSignal={gameAction}
                 controlsHint="Camera / Arrow keys / Space"
                 keyboardBindings={PLAYER_ONE_KEYS}
-                onGameOver={setGameOverInfo}
+                onGameOver={handleSoloGameOver}
                 onRestart={restartGame}
               />
             ) : gameMode === "local-multiplayer" ? (
@@ -371,6 +490,7 @@ function App() {
                     actionSignal={gameAction}
                     controlsHint="Camera / Arrow keys / Space"
                     keyboardBindings={PLAYER_ONE_KEYS}
+                    onGameOver={handlePlayerOneGameOver}
                     onRestart={() => restartMultiplayerBoard("playerOne")}
                     playerLabel="Player 1"
                   />
@@ -380,6 +500,7 @@ function App() {
                     actionSignal={{ id: 0, action: null }}
                     controlsHint="WASD"
                     keyboardBindings={PLAYER_TWO_KEYS}
+                    onGameOver={handlePlayerTwoGameOver}
                     onRestart={() => restartMultiplayerBoard("playerTwo")}
                     playerLabel="Player 2"
                   />
@@ -395,6 +516,11 @@ function App() {
                   <p className="game-panel-meta">
                     Board local cua ban duoc dieu khien bang camera va duoc stream sang may con lai theo room.
                   </p>
+                  {onlineRoom?.winnerId ? (
+                    <p className="game-panel-meta">
+                      Ket qua: {onlineRoom.winnerId === onlineRoom.localPlayerId ? "Ban thang" : "Ban thua"}
+                    </p>
+                  ) : null}
                 </div>
 
                 <div className="room-inline-actions">
@@ -414,6 +540,7 @@ function App() {
                     level={level}
                     actionSignal={gameAction}
                     controlsHint="Camera / Arrow keys / Space"
+                    disabled={isOnlineMatchResolved}
                     keyboardBindings={PLAYER_ONE_KEYS}
                     onRestart={() => setOnlineRestartNonce((prev) => prev + 1)}
                     onStateChange={handleOnlineBoardState}

@@ -66,6 +66,11 @@ export default function OnlineRoomPanel({
         <p className="game-panel-meta">
           Role: {roomState ? (isHost ? "Host" : "Guest") : "Not connected"}
         </p>
+        {roomState?.winnerId ? (
+          <p className="game-panel-meta">
+            Match: {roomState.winnerId === roomState.localPlayerId ? "Ban thang" : "Ban thua"}
+          </p>
+        ) : null}
         {roomError ? <p className="room-error">{roomError}</p> : null}
       </div>
 

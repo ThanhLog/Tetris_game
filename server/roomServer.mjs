@@ -34,6 +34,7 @@ function serializeRoom(room, localPlayerId) {
     roomCode: room.code,
     selectedLevel: room.selectedLevel,
     started: room.started,
+    winnerId: room.winnerId,
   };
 }
 
@@ -69,6 +70,7 @@ function removeClient(socket) {
 
   if (room.players.size < 2) {
     room.started = false;
+    room.winnerId = null;
     room.players.forEach((player) => {
       player.boardState = null;
     });
@@ -116,6 +118,7 @@ wss.on("connection", (socket) => {
           ]),
           selectedLevel: "easy",
           started: false,
+          winnerId: null,
         };
 
         rooms.set(roomCode, room);
@@ -184,6 +187,7 @@ wss.on("connection", (socket) => {
         }
 
         room.started = true;
+        room.winnerId = null;
         room.players.forEach((entry) => {
           entry.boardState = null;
         });
@@ -198,6 +202,7 @@ wss.on("connection", (socket) => {
         }
 
         room.started = false;
+        room.winnerId = null;
         room.players.forEach((entry) => {
           entry.boardState = null;
         });
@@ -207,6 +212,11 @@ wss.on("connection", (socket) => {
 
       if (message.type === "board_state") {
         player.boardState = message.boardState;
+
+        if (room.started && !room.winnerId && message.boardState?.gameOver) {
+          room.winnerId = [...room.players.keys()].find((playerId) => playerId !== session.playerId) ?? null;
+        }
+
         broadcastRoomState(room);
         return;
       }
