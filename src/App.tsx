@@ -300,43 +300,6 @@ function App() {
 
   const handleGestureAction = useCallback((action: ActionType) => {
     if (screen === "menu") {
-      if (isOnlineMode) {
-        const activeRoom = onlineRoomRef.current;
-        const activePlayer = activeRoom?.players.find((player) => player.id === activeRoom.localPlayerId);
-
-        if (!activeRoom || !activePlayer?.isHost) {
-          return;
-        }
-
-        if (action === "LEFT" || action === "RIGHT") {
-          const nextIndex =
-            action === "LEFT"
-              ? (menuIndex - 1 + LEVELS.length) % LEVELS.length
-              : (menuIndex + 1) % LEVELS.length;
-          const nextLevel = LEVELS[nextIndex];
-          setMenuIndex(nextIndex);
-          sendRoomMessage({ type: "set_level", level: nextLevel });
-        }
-
-        if (action === "ROTATE" || action === "DOWN") {
-          sendRoomMessage({ type: "start_game" });
-        }
-
-        return;
-      }
-
-      if (action === "LEFT") {
-        setMenuIndex((prev) => (prev - 1 + LEVELS.length) % LEVELS.length);
-      }
-
-      if (action === "RIGHT") {
-        setMenuIndex((prev) => (prev + 1) % LEVELS.length);
-      }
-
-      if (action === "ROTATE" || action === "DOWN") {
-        startLevel(selectedLevel);
-      }
-
       return;
     }
 
@@ -361,7 +324,7 @@ function App() {
       id: prev.id + 1,
       action,
     }));
-  }, [isOnlineMatchResolved, isOnlineMode, menuIndex, restartGame, screen, selectedLevel, sendRoomMessage, startLevel]);
+  }, [isOnlineMatchResolved, restartGame, screen]);
 
   useEffect(() => {
     if (!isOnlineMode || !onlineRoom) return;

@@ -174,7 +174,7 @@ function getScreenHint(
   selectedLevel?: string,
 ) {
   if (screen === "menu") {
-    return `Mode: ${selectedLevel ?? "easy"} | ${gameMode === "solo" ? "Solo" : gameMode === "local-multiplayer" ? "Local multiplayer" : "Online room"} | Tro trai phai de chon | Nam tay de vao game`;
+    return `Mode: ${selectedLevel ?? "easy"} | ${gameMode === "solo" ? "Solo" : gameMode === "local-multiplayer" ? "Local multiplayer" : "Online room"} | Dung chuot de chon che do va bat dau`;
   }
 
   if (screen === "gameover") {
@@ -186,7 +186,7 @@ function getScreenHint(
   }
 
   if (gameMode === "online-room") {
-    return "Host doi level va start bang cu chi | Board duoc stream sang may con lai theo room";
+    return "Host dung chuot de doi level va start | Board duoc stream sang may con lai theo room";
   }
 
   return "Tro de di chuyen | Nam tay de xoay | Hai ngon de day xuong";
